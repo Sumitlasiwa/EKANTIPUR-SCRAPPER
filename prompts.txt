@@ -1,0 +1,23 @@
+# prompts.txt
+
+1. "playwright python extract top 5 articles from ekantipur.com/entertainment, 
+   need title, image_url, category, author — use sync API"
+
+2. "images are coming as /assets/... not full url how to fix"
+
+3. "some images not loading, checked devtools they use data-src instead 
+   of src, how do i handle this"
+
+4. "getting 0 results for cartoon page, article tags not found, 
+   page uses section.cartoon-main-wrapper instead"
+
+5. "cartoon description has two formats — sometimes 'गजब छ बा! - अविन' 
+   sometimes 'कार्टुनिस्ट: अविन' how do i parse author from both"
+
+6. "cartoon-header h4 exists on some cards not all, need title fallback 
+   to description p text if no header"
+
+7. "how to save json with nepali text without it becoming unicode escape 
+   sequences like \u0917"
+
+8. "add try except so if one card fails it skips instead of crashing"
