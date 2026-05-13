@@ -1,23 +1,29 @@
+"""
+Scrape ekantipur.com listing pages with Playwright (sync API).
+Writes combined results to output.json (UTF-8, Nepali script preserved).
+"""
 from playwright.sync_api import sync_playwright
 import json
 
+
 def extract_entertainment(page):
-    # Navigate to entertainment section
+    """First 5 articles from /entertainment: title, image, section category, author."""
     page.goto("https://ekantipur.com/entertainment", wait_until="domcontentloaded")
-    page.wait_for_timeout(2000)  # let lazy content settle
+    # Images and secondary content often load after first paint
+    page.wait_for_timeout(2000)
 
     articles = []
 
+    # Each top story is a div.category block (title + blurb + thumb)
     cards = page.query_selector_all("div.category")
     print(len(cards))
-    
 
-    for card in cards[:5]:  # top 5 only
+    for card in cards[:5]:
         try:
             title_el = card.query_selector("h2 a")
             title = title_el.text_content().strip() if title_el else None
 
-            # Image — check both src and data-src (lazy loading)
+            # Lazy-loaded thumbs may use data-src until visible
             img_el = card.query_selector("img")
             image_url = None
             if img_el:
@@ -25,12 +31,11 @@ def extract_entertainment(page):
                     img_el.get_attribute("src") or
                     img_el.get_attribute("data-src")
                 )
-            
-            # Category label
+
+            # Section name (e.g. मनोरञ्जन) lives once in the page chrome, not inside each card
             cat_el = page.query_selector("div.category-name a")
             category = cat_el.text_content().strip() if cat_el else None
 
-            # Author — often missing; safe fallback to None
             author_el = card.query_selector("div.author-name p a")
             author = author_el.text_content().strip() if author_el else None
 
@@ -49,11 +54,12 @@ def extract_entertainment(page):
 
 
 def extract_cartoon(page):
+    """Today's cartoon panel: title, image URL, cartoonist name if parseable."""
     page.goto("https://ekantipur.com/cartoon", wait_until="domcontentloaded")
     page.wait_for_timeout(3000)
 
-    
     try:
+        # Main strip is injected after initial load
         page.wait_for_selector("section.cartoon-main-wrapper", timeout=10000)
 
         card = page.query_selector(".cartoon-wrapper")
@@ -81,7 +87,7 @@ def extract_cartoon(page):
                 title = raw_desc or None
                 author = None
 
-        # IMAGE
+        # Art next to caption; lazy load may use data-src
         img_el = card.query_selector(".cartoon-image img")
         image_url = (
             img_el.get_attribute("src") or img_el.get_attribute("data-src")
@@ -93,12 +99,13 @@ def extract_cartoon(page):
         print(f"Cartoon extraction failed: {e}")
         return {"title": None, "image_url": None, "author": None}
 
+
 def main():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         page = browser.new_page()
 
-        # Set a realistic user agent to avoid bot detection
+        # Some CDNs / WAFs treat default Playwright UA as automation
         page.set_extra_http_headers({
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                         "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -111,7 +118,6 @@ def main():
 
         print("Extracting cartoon of the day...")
         cartoon = extract_cartoon(page)
-        # Safe access — won't crash if None returned
         if cartoon:
             print(f"  Cartoon title: {cartoon.get('title')}")
 
@@ -120,11 +126,12 @@ def main():
             "cartoon_of_the_day": cartoon
         }
 
-        # Save JSON — ensure_ascii=False preserves Nepali (Devanagari) script
+        # json.dumps defaults to ASCII escapes; disable for Devanagari etc.
         with open("output.json", "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2)
 
         print("\n✅ Saved to output.json")
         browser.close()
 
+if __name__ == "__main__":
 main()
