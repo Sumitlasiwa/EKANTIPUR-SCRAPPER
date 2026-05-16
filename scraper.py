@@ -10,34 +10,29 @@ def extract_entertainment(page):
     """First 5 articles from /entertainment: title, image, section category, author."""
     page.goto("https://ekantipur.com/entertainment", wait_until="domcontentloaded")
     # Images and secondary content often load after first paint
-    page.wait_for_timeout(2000)
+    # page.wait_for_timeout(2000)
 
     articles = []
 
     # Each top story is a div.category block (title + blurb + thumb)
-    cards = page.query_selector_all("div.category")
+    cards = page.locator("div.category").all()
     print(len(cards))
 
     for card in cards[:5]:
         try:
-            title_el = card.query_selector("h2 a")
-            title = title_el.text_content().strip() if title_el else None
+            title_el = card.locator("h2 a").first
+            title = title_el.text_content().strip() if title_el.count() > 0 else None
 
             # Lazy-loaded thumbs may use data-src until visible
-            img_el = card.query_selector("img")
-            image_url = None
-            if img_el:
-                image_url = (
-                    img_el.get_attribute("src") or
-                    img_el.get_attribute("data-src")
-                )
+            img_el = card.locator("img")
+            image_url = img_el.get_attribute("src") or img_el.get_attribute("data-src")
 
             # Section name (e.g. मनोरञ्जन) lives once in the page chrome, not inside each card
-            cat_el = page.query_selector("div.category-name a")
-            category = cat_el.text_content().strip() if cat_el else None
+            cat_el = page.locator("div.category-name a").first
+            category = cat_el.text_content().strip() if cat_el.count() > 0 else None
 
-            author_el = card.query_selector("div.author-name p a")
-            author = author_el.text_content().strip() if author_el else None
+            author_el = card.locator("div.author-name p a").first
+            author = author_el.text_content().strip() if author_el.count() > 0 else None
 
             articles.append({
                 "title": title,
@@ -56,48 +51,45 @@ def extract_entertainment(page):
 def extract_cartoon(page):
     """Today's cartoon panel: title, image URL, cartoonist name if parseable."""
     page.goto("https://ekantipur.com/cartoon", wait_until="domcontentloaded")
-    page.wait_for_timeout(3000)
 
     try:
         # Main strip is injected after initial load
-        page.wait_for_selector("section.cartoon-main-wrapper", timeout=10000)
-
-        card = page.query_selector(".cartoon-wrapper")
+        # page.locator("section.cartoon-main-wrapper").wait_for(timeout=10000)
+        page.wait_for_timeout(2000)
+        card = page.locator("div.cartoon-wrapper").all()[0] # first card
 
         # TITLE: prefer cartoon-header h4, fall back to description p
-        header_el = card.query_selector(".cartoon-header h4")
-        desc_el = card.query_selector(".cartoon-description p")
-        raw_desc = desc_el.text_content().strip() if desc_el else ""
+        header_el = card.locator("div.cartoon-header h4")
+        desc_el = card.locator("div.cartoon-description p").first
+        raw_desc = desc_el.text_content().strip()
 
-        if header_el:
+        if header_el.count() > 0:
             title = header_el.text_content().strip()
             # Author format: "कार्टुनिस्ट: अविन" → split on ": "
-            if ": " in raw_desc:
-                author = raw_desc.split(": ", 1)[1].strip() or None
+            if raw_desc and ": " in raw_desc:
+                author = raw_desc.split(": ", 1)[1].strip()
             else:
-                author = raw_desc.strip() or None
+                author = raw_desc.strip()
         else:
             # No header — format: "गजब छ बा! - अविन"
             print("No title so title taken from description !")
-            if " - " in raw_desc:
+            if raw_desc and " - " in raw_desc:
                 parts = raw_desc.split(" - ", 1)
                 title = parts[0].strip()
-                author = parts[1].strip() or None
+                author = parts[1].strip()
             else:
-                title = raw_desc or None
-                author = None
+                title = raw_desc or ""
+                author = ""
 
         # Art next to caption; lazy load may use data-src
-        img_el = card.query_selector(".cartoon-image img")
-        image_url = (
-            img_el.get_attribute("src") or img_el.get_attribute("data-src")
-        ) if img_el else None
+        img_el = card.locator("div.cartoon-image img")
+        image_url = img_el.get_attribute("src") or img_el.get_attribute("data-src")
 
         return {"title": title, "image_url": image_url, "author": author}
 
     except Exception as e:
         print(f"Cartoon extraction failed: {e}")
-        return {"title": None, "image_url": None, "author": None}
+        return {"title": "", "image_url": "", "author": ""}
 
 
 def main():
@@ -119,7 +111,7 @@ def main():
         print("Extracting cartoon of the day...")
         cartoon = extract_cartoon(page)
         if cartoon:
-            print(f"  Cartoon title: {cartoon.get('title')}")
+            print(f"  Cartoon title: {cartoon['title']}")
 
         output = {
             "entertainment_news": entertainment,
