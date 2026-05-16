@@ -55,7 +55,6 @@ def extract_cartoon(page):
     try:
         # Main strip is injected after initial load
         # page.locator("section.cartoon-main-wrapper").wait_for(timeout=10000)
-        page.wait_for_timeout(2000)
         card = page.locator("div.cartoon-wrapper").all()[0] # first card
 
         # TITLE: prefer cartoon-header h4, fall back to description p
